@@ -53,7 +53,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Started tcp connection on port: %d", port)
+	fmt.Printf("Started tcp connection on port: %d\n", port)
 
 	defer listener.Close()
 
