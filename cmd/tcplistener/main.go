@@ -1,75 +1,77 @@
 package main
 
 import (
-	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
-	ch := make(chan string)
+	lines := make(chan string)
 
 	go func() {
 		defer f.Close()
-		defer close(ch)
+		defer close(lines)
 
-		str := ""
+		currentLineContents := ""
 		for {
-			data := make([]byte, 8)
-			n, err := f.Read(data)
+			b := make([]byte, 8)
+			n, err := f.Read(b)
 
 			if err != nil {
-				break
+				if currentLineContents != "" {
+					lines <- currentLineContents
+				}
+
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				fmt.Printf("error: %s\n", err.Error())
+				return
 			}
 
-			data = data[:n]
-			if i := bytes.IndexByte(data, '\n'); i != -1 {
-				str += string(data[:i])
-				data = data[i+1:]
-				ch <- str
-				str = ""
+			str := string(b[:n])
+			parts := strings.Split(str, "\n")
+			for i := 0; i < len(parts)-1; i++ {
+				lines <- fmt.Sprintf("%s%s", currentLineContents, parts[i])
+				currentLineContents = ""
 			}
-
-			str += string(data)
-		}
-
-		if len(str) != 0 {
-			ch <- str
+			currentLineContents += parts[len(parts)-1]
 		}
 	}()
 
-	return ch
+	return lines
 }
 
-const port = 42069
-const host = "127.0.0.1"
+const port = ":42069"
 
 func main() {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+	listener, err := net.Listen("tcp", port)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error listening for TCP: %s\n", err.Error())
 	}
 
-	fmt.Printf("Started tcp connection on port: %d\n", port)
-
+	fmt.Printf("Started TCP connection on port: %s\n", port)
 	defer listener.Close()
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("error: %s", err.Error())
 		}
 
-		fmt.Println("Connection accepted")
-		ch := getLinesChannel(conn)
+		fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
-		for line := range ch {
-			fmt.Printf("read: %s\n", line)
+		linesChan := getLinesChannel(conn)
+
+		for line := range linesChan {
+			fmt.Println(line)
 		}
 
-		fmt.Println("Connection closed")
+		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
 }
