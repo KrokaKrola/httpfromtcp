@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"httpfromtcp.krokakrola.com/internal/headers"
 )
 
 type requestState int
@@ -13,6 +15,7 @@ type requestState int
 const (
 	requestStateDone requestState = iota
 	requestStateInitialized
+	requestStateParsingHeaders
 )
 
 type RequestLine struct {
@@ -22,6 +25,7 @@ type RequestLine struct {
 }
 type Request struct {
 	RequestLine RequestLine
+	Headers     headers.Headers
 	state       requestState
 }
 
@@ -33,7 +37,8 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	readCounter := 0
 
 	request := &Request{
-		state: requestStateInitialized,
+		state:   requestStateInitialized,
+		Headers: headers.NewHeaders(),
 	}
 
 	for request.state != requestStateDone {
@@ -47,7 +52,9 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				request.state = requestStateDone
+				if request.state != requestStateDone {
+					return nil, fmt.Errorf("incomplete request, in state: %d, read n bytes on EOF: %d", request.state, numBytesRead)
+				}
 				break
 			}
 			return nil, errors.Join(fmt.Errorf("error reading stream of data"), err)
@@ -64,6 +71,8 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		copy(buf, buf[parsedCounter:])
 		readCounter -= parsedCounter
 	}
+
+	fmt.Printf("%+v\n", request)
 
 	return request, nil
 }
@@ -121,26 +130,47 @@ func (r *Request) requestLineFromString(str string) (*RequestLine, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	switch r.state {
-	case requestStateInitialized:
-		requestLine, num, err := r.parseRequestLine(data)
-		// actual error happend
+	totalBytesParsed := 0
+	for r.state != requestStateDone {
+		n, err := r.parseSingle(data[totalBytesParsed:])
 		if err != nil {
 			return 0, err
 		}
+		totalBytesParsed += n
+		if n == 0 {
+			break
+		}
+	}
+	return totalBytesParsed, nil
+}
 
-		// parsing is not done
-		if num == 0 {
+func (r *Request) parseSingle(data []byte) (int, error) {
+	switch r.state {
+	case requestStateInitialized:
+		requestLine, n, err := r.parseRequestLine(data)
+		if err != nil {
+			// something actually went wrong
+			return 0, err
+		}
+		if n == 0 {
+			// just need more data
 			return 0, nil
 		}
-
 		r.RequestLine = *requestLine
-		r.state = requestStateDone
-
-		return num, nil
+		r.state = requestStateParsingHeaders
+		return n, nil
+	case requestStateParsingHeaders:
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if done {
+			r.state = requestStateDone
+		}
+		return n, nil
 	case requestStateDone:
-		return 0, fmt.Errorf("invalid state of parser")
+		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:
-		return 0, fmt.Errorf("invalid state of parser")
+		return 0, fmt.Errorf("unknown state")
 	}
 }

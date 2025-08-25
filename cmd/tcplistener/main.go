@@ -38,6 +38,10 @@ func main() {
 		fmt.Printf("- Method: %s\n", req.RequestLine.Method)
 		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
+		fmt.Println("Headers:")
+		fmt.Printf("- host: %s\n", req.Headers["host"])
+		fmt.Printf("- user-agent: %s\n", req.Headers["user-agent"])
+		fmt.Printf("- accept: %s\n", req.Headers["accept"])
 
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}
