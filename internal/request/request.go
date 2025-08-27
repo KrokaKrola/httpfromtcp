@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"httpfromtcp.krokakrola.com/internal/headers"
@@ -13,9 +14,10 @@ import (
 type requestState int
 
 const (
-	requestStateDone requestState = iota
-	requestStateInitialized
+	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
+	requestStateDone
 )
 
 type RequestLine struct {
@@ -27,6 +29,7 @@ type Request struct {
 	RequestLine RequestLine
 	Headers     *headers.Headers
 	state       requestState
+	Body        []byte
 }
 
 const crlf = "\r\n"
@@ -71,8 +74,6 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 		copy(buf, buf[parsedCounter:])
 		readCounter -= parsedCounter
 	}
-
-	fmt.Printf("%+v\n", request)
 
 	return request, nil
 }
@@ -136,7 +137,9 @@ func (r *Request) parse(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		totalBytesParsed += n
+
 		if n == 0 {
 			break
 		}
@@ -152,22 +155,50 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			// something actually went wrong
 			return 0, err
 		}
+
 		if n == 0 {
 			// just need more data
 			return 0, nil
 		}
+
 		r.RequestLine = *requestLine
 		r.state = requestStateParsingHeaders
+
 		return n, nil
 	case requestStateParsingHeaders:
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return 0, err
 		}
+
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 		}
+
 		return n, nil
+	case requestStateParsingBody:
+		c := r.Headers.Get("content-length")
+		if c == "" {
+			r.state = requestStateDone
+			return len(data), nil
+		}
+
+		cLen, err := strconv.Atoi(c)
+		if err != nil {
+			return 0, fmt.Errorf("invalid content-length: %v", err)
+		}
+
+		if len(data) < cLen {
+			return 0, nil
+		} else if len(data) == cLen {
+			r.Body = append(r.Body, data...)
+		} else {
+			return 0, fmt.Errorf("invalid content-length")
+		}
+
+		r.state = requestStateDone
+
+		return cLen, nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:
