@@ -11,13 +11,17 @@ const crlf = ("\r\n")
 
 const separator = ":"
 
-type Headers map[string]string
-
-func NewHeaders() Headers {
-	return map[string]string{}
+type Headers struct {
+	headers map[string]string
 }
 
-func (h Headers) Parse(data []byte) (n int, done bool, err error) {
+func NewHeaders() *Headers {
+	return &Headers{
+		headers: map[string]string{},
+	}
+}
+
+func (h *Headers) Parse(data []byte) (n int, done bool, err error) {
 	crlfPos := bytes.Index(data, []byte(crlf))
 
 	if crlfPos == -1 {
@@ -59,27 +63,29 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	headerKey := string(headerName)
 	headerValue := string(headerValueSlice)
 
-	storedValue, exists := h.Get(headerKey)
-
-	if exists {
-		headerValue = fmt.Sprintf("%s, %s", storedValue, headerValue)
-	}
-
 	h.Set(headerKey, headerValue)
 
 	return crlfPos + 2, false, nil
 }
 
-func (h Headers) Get(key string) (string, bool) {
-	key = strings.ToLower(key)
-	value, exists := h[key]
-
-	return value, exists
+func (h *Headers) Get(key string) string {
+	return h.headers[strings.ToLower(key)]
 }
 
-func (h Headers) Set(key, value string) {
-	key = strings.ToLower(key)
-	h[key] = value
+func (h *Headers) Set(key, value string) {
+	name := strings.ToLower(key)
+
+	if v, ok := h.headers[name]; ok {
+		h.headers[name] = fmt.Sprintf("%s, %s", v, value)
+	} else {
+		h.headers[name] = value
+	}
+}
+
+func (h *Headers) ForEach(fn func(key, value string)) {
+	for key, value := range h.headers {
+		fn(key, value)
+	}
 }
 
 var validBytePattern = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+\-.\^_\` + "`" + `|~]*$`)
@@ -89,6 +95,6 @@ var validBytePattern = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+\-.\^_\` + "`" + `
 // - Lowercase letters: a-z
 // - Digits: 0-9
 // - Special characters: !, #, $, %, &, ', *, +, -, ., ^, _, `, |, ~
-func (h Headers) isValidByteSlice(data []byte) bool {
+func (h *Headers) isValidByteSlice(data []byte) bool {
 	return validBytePattern.Match(data)
 }

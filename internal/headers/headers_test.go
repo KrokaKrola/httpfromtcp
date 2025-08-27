@@ -14,7 +14,7 @@ func TestHeaders(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:42069", headers.Get("host"))
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -24,18 +24,19 @@ func TestHeaders(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, "localhost:42069", headers.Get("host"))
 	assert.Equal(t, 57, n)
 	assert.False(t, done)
 
 	// Test: Valid 2 headers with existing headers
-	headers = map[string]string{"host": "localhost:42069"}
+	headers = NewHeaders()
+	headers.Set("host", "localhost:42069")
 	data = []byte("User-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["host"])
-	assert.Equal(t, "curl/7.81.0", headers["user-agent"])
+	assert.Equal(t, "localhost:42069", headers.Get("host"))
+	assert.Equal(t, "curl/7.81.0", headers.Get("user-agent"))
 	assert.Equal(t, 25, n)
 	assert.False(t, done)
 
@@ -45,7 +46,7 @@ func TestHeaders(t *testing.T) {
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Empty(t, headers)
+	assert.Empty(t, headers.headers)
 	assert.Equal(t, 2, n)
 	assert.True(t, done)
 
@@ -66,12 +67,13 @@ func TestHeaders(t *testing.T) {
 	assert.False(t, done)
 
 	// Test: multiple headers
-	headers = map[string]string{"set-person": "lane-loves-go, prime-loves-zig"}
+	headers = NewHeaders()
+	headers.Set("set-person", "lane-loves-go, prime-loves-zig")
 	data = []byte("Set-Person: tj-loves-ocaml\r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers["set-person"])
+	assert.Equal(t, "lane-loves-go, prime-loves-zig, tj-loves-ocaml", headers.Get("set-person"))
 	assert.Equal(t, 28, n)
 	assert.False(t, done)
 }

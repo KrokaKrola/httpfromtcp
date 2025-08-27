@@ -39,9 +39,9 @@ func main() {
 		fmt.Printf("- Target: %s\n", req.RequestLine.RequestTarget)
 		fmt.Printf("- Version: %s\n", req.RequestLine.HttpVersion)
 		fmt.Println("Headers:")
-		fmt.Printf("- host: %s\n", req.Headers["host"])
-		fmt.Printf("- user-agent: %s\n", req.Headers["user-agent"])
-		fmt.Printf("- accept: %s\n", req.Headers["accept"])
+		req.Headers.ForEach(func(key, value string) {
+			fmt.Printf("- %s: %s\n", key, value)
+		})
 
 		fmt.Println("Connection to ", conn.RemoteAddr(), "closed")
 	}

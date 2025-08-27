@@ -25,7 +25,7 @@ type RequestLine struct {
 }
 type Request struct {
 	RequestLine RequestLine
-	Headers     headers.Headers
+	Headers     *headers.Headers
 	state       requestState
 }
 
