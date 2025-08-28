@@ -3,9 +3,9 @@ package response
 type StatusCode int
 
 const (
-	OK StatusCode = iota
-	BadRequest
-	InternalServerError
+	OK                  StatusCode = 200
+	BadRequest          StatusCode = 400
+	InternalServerError StatusCode = 500
 )
 
 func (s StatusCode) String() string {
@@ -18,18 +18,5 @@ func (s StatusCode) String() string {
 		return "Internal Server Error"
 	default:
 		return "Unknown Status Code"
-	}
-}
-
-func (s StatusCode) Number() int {
-	switch s {
-	case OK:
-		return 200
-	case BadRequest:
-		return 400
-	case InternalServerError:
-		return 500
-	default:
-		return 0
 	}
 }

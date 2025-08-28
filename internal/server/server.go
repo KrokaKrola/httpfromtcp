@@ -6,15 +6,17 @@ import (
 	"net"
 	"sync/atomic"
 
+	"httpfromtcp.krokakrola.com/internal/request"
 	"httpfromtcp.krokakrola.com/internal/response"
 )
 
 type Server struct {
 	listener net.Listener
 	closed   atomic.Bool
+	handler  Handler
 }
 
-func Serve(port int) (*Server, error) {
+func Serve(port int, handler Handler) (*Server, error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
@@ -22,6 +24,7 @@ func Serve(port int) (*Server, error) {
 
 	server := &Server{
 		listener: listener,
+		handler:  handler,
 	}
 
 	go server.listen()
@@ -61,13 +64,11 @@ func (s *Server) handle(conn net.Conn) {
 
 	fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
-	err := response.WriteStatusLine(conn, response.OK)
+	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		log.Printf("error writing status line: %+v\n", err)
+		panic(err)
 	}
+	res := response.NewWriter(conn)
 
-	err = response.WriteHeaders(conn, response.GetDefaultHeaders(0))
-	if err != nil {
-		log.Printf("error writing headers: %+v\n", err)
-	}
+	s.handler(req, res)
 }

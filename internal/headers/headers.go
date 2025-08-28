@@ -82,16 +82,11 @@ func (h *Headers) Set(key, value string) {
 	}
 }
 
-func (h *Headers) ForEach(fn func(key, value string) error) error {
+func (h *Headers) ForEach(fn func(key, value string)) {
 	for key, value := range h.headers {
-		err := fn(key, value)
-
-		if err != nil {
-			return nil
-		}
+		fn(key, value)
 	}
 
-	return nil
 }
 
 var validBytePattern = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+\-.\^_\` + "`" + `|~]*$`)
