@@ -82,11 +82,21 @@ func (h *Headers) Set(key, value string) {
 	}
 }
 
+func (h *Headers) Replace(key, value string) {
+	name := strings.ToLower(key)
+
+	h.headers[name] = value
+}
+
 func (h *Headers) ForEach(fn func(key, value string)) {
 	for key, value := range h.headers {
 		fn(key, value)
 	}
+}
 
+func (h *Headers) Delete(key string) {
+	k := strings.ToLower(key)
+	delete(h.headers, k)
 }
 
 var validBytePattern = regexp.MustCompile(`^[A-Za-z0-9!#$%&'*+\-.\^_\` + "`" + `|~]*$`)
