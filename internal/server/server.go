@@ -64,11 +64,13 @@ func (s *Server) handle(conn net.Conn) {
 
 	fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
+	res := response.NewWriter(conn)
+
 	req, err := request.RequestFromReader(conn)
 	if err != nil {
-		panic(err)
+		res.WriteHtml(response.BadRequest, "Your request honestly kinda sucked.")
+		return
 	}
-	res := response.NewWriter(conn)
 
 	s.handler(req, res)
 }
